@@ -156,6 +156,7 @@ print_standard_errors_of_strong_errors = True
 do_variance_analysis_weak_error = True
 
 #  This prints out the size of the reference solution and the associated error for each discretization (for both strong and weak errors).
+# I.e. it calculates the relative error.
 # Requires the code section 'calculate_reference_solutions', 'calculate_space_discretization_errors',
 # 'calculate_time_discretization_errors' and 'do_variance_analysis_weak_error' (and their dependencies) to be completed.
 calculating_size_of_solutions_and_comparing_to_errors = True
@@ -809,7 +810,8 @@ if do_variance_analysis_weak_error:
         np.save(f, weak_errors_space, allow_pickle=False, fix_imports=False)
     print('Weak errors and standard errors saved for space discretization.')
 
-#  This prints the size of the reference solution and compares it to the associated error (for both strong and weak errors).
+#  This prints the size of the reference solution and compares it to the associated error (for both strong and weak errors). I.e. the
+# relative error.
 if calculating_size_of_solutions_and_comparing_to_errors:
     folder = Path('paper_results')
     # Weak Errors
@@ -826,12 +828,12 @@ if calculating_size_of_solutions_and_comparing_to_errors:
             averages[m_power_ind] += weak_functional(mass_matrix,reference_solution[:,M_max])
     averages = 1 / max_samples * averages
     for m_power_ind in range(9):
-        print(f' For m_power_ind = {m_power_ind}, reference norm squared is {averages[m_power_ind]} and the error is {weak_errors[m_power_ind,0]}.')
+        print(f'(Weak) For m_power_ind = {m_power_ind}, reference norm squared is {averages[m_power_ind]} and the error is {weak_errors[m_power_ind,0]}. Relative error is {weak_errors[m_power_ind,0] / averages[m_power_ind]}.')
     for n_power_ind in range(4):
         file_load = 'weak_space_errors_with_standard_error.npy'
         with open(folder / file_load, 'rb') as f:
             weak_errors = np.load(f)
-        print(f'For n_power_ind = {n_power_ind}, reference norm squared is {averages[n_power_ind]} and the error is {weak_errors[n_power_ind,0]}.')
+        print(f'(Weak) For n_power_ind = {n_power_ind}, reference norm squared is {averages[n_power_ind]} and the error is {weak_errors[n_power_ind,0]}. Relative error is {weak_errors[n_power_ind,0] / averages[n_power_ind]}.')
     # Strong Errors
     file_load = f'raw_results_strong_time.npy'
     with open(folder / file_load, 'rb') as f:
@@ -843,14 +845,14 @@ if calculating_size_of_solutions_and_comparing_to_errors:
     strong_error_space_standard_errors = np.zeros((4, M_max + 1, 2))    
     for m_power_ind in range(9):
         for m in range(2**(M_power - 9 + m_power_ind) + 1):
-            strong_error_time_standard_errors[m_power_ind, m, 0] = np.average(raw_results_strong_time[m_power_ind, m, :])
+            strong_error_time_standard_errors[m_power_ind, m, 0] = np.sqrt(np.average(raw_results_strong_time[m_power_ind, m, :]))
             strong_error_time_standard_errors[m_power_ind, m, 1] = 1 / np.sqrt(max_samples) * np.sqrt(np.var(raw_results_strong_time[m_power_ind, m, :],ddof=1))
     strong_time_errors_index = np.zeros(9, dtype = 'int')
     for m_power_ind in range(9):
         strong_time_errors_index[m_power_ind] = np.argmax(strong_error_time_standard_errors[m_power_ind, :, 0])
     for n_power_ind in range(4):
         for m in range(M_max + 1):
-            strong_error_space_standard_errors[n_power_ind, m, 0] = np.average(raw_results_strong_space[n_power_ind, m, :])
+            strong_error_space_standard_errors[n_power_ind, m, 0] = np.sqrt(np.average(raw_results_strong_space[n_power_ind, m, :]))
             strong_error_space_standard_errors[n_power_ind, m, 1] = 1 / np.sqrt(max_samples) * np.sqrt(np.var(raw_results_strong_space[n_power_ind, m, :],ddof=1))
     strong_space_errors_index = np.zeros(4, dtype = 'int')
     for n_power_ind in range(4):
@@ -865,8 +867,8 @@ if calculating_size_of_solutions_and_comparing_to_errors:
             with open(folder / file_load, 'rb') as f:
                 ref_sol = np.load(f)
             size_of_references_space[n_power_ind] += weak_functional(mass_matrix, ref_sol[:, strong_space_errors_index[n_power_ind]])
-        size_of_references_space[n_power_ind] = 1 / max_samples * size_of_references_space[n_power_ind]
-        print(f'For n_power_ind = {n_power_ind}, reference norm squared is {size_of_references_space[n_power_ind]} and the error is {strong_error_space_standard_errors[n_power_ind, strong_space_errors_index[n_power_ind], 0]}.')
+        size_of_references_space[n_power_ind] = np.sqrt(1 / max_samples * size_of_references_space[n_power_ind])
+        print(f'(Strong) For n_power_ind = {n_power_ind}, reference norm squared is {size_of_references_space[n_power_ind]} and the error is {strong_error_space_standard_errors[n_power_ind, strong_space_errors_index[n_power_ind], 0]}. Relative error is {strong_error_space_standard_errors[n_power_ind, strong_space_errors_index[n_power_ind], 0] / size_of_references_space[n_power_ind]}.')
     for m_power_ind in range(9):
         M = 2**(M_power - 9 + m_power_ind)
         d = M_max // M
@@ -875,8 +877,8 @@ if calculating_size_of_solutions_and_comparing_to_errors:
             with open(folder / file_load, 'rb') as f:
                 ref_sol = np.load(f)
             size_of_references_time[m_power_ind] += weak_functional(mass_matrix, ref_sol[:, d * strong_time_errors_index[m_power_ind]])
-        size_of_references_time[m_power_ind] = 1 / max_samples * size_of_references_time[m_power_ind]
-        print(f' For m_power_ind = {m_power_ind}, reference norm squared is {size_of_references_time[m_power_ind]} and the error is {strong_error_time_standard_errors[m_power_ind, strong_time_errors_index[m_power_ind], 0]}.')
+        size_of_references_time[m_power_ind] = np.sqrt(1 / max_samples * size_of_references_time[m_power_ind])
+        print(f'(Strong) For m_power_ind = {m_power_ind}, reference norm squared is {size_of_references_time[m_power_ind]} and the error is {strong_error_time_standard_errors[m_power_ind, strong_time_errors_index[m_power_ind], 0]}. Relative error is {strong_error_time_standard_errors[m_power_ind, strong_time_errors_index[m_power_ind], 0] / size_of_references_time[m_power_ind]}.')
 
 #  This calculates the raw data for the weak error for a larger spatial discretization parameter and more samples.
 if weak_error_space_alternative:
